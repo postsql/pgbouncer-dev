@@ -109,6 +109,12 @@ static void start_auth_request(PgSocket *client, const char *username)
 		disconnect_client(client, true, "pause failed");
 		return;
 	}
+	/* increase active transactions count */
+	client->pool->user->active_transactions_count ++;
+	slog_debug(client, "<ATX>: client (%ld) start auth: ->pool->user->active_transactions_count ++; ==> %d)",
+	   (long) client,
+	   client->pool->user->active_transactions_count);
+
 	client->link->ready = 0;
 
 	res = 0;
@@ -547,7 +553,14 @@ static bool handle_client_work(PgSocket *client, PktHdr *pkt)
 			return false;
 
 		client->pool->stats.client_bytes += pkt->len;
-
+		
+		/* increase active transactions count if starting a transaction */
+		if(client->link->ready){
+			client->pool->user->active_transactions_count ++;
+			slog_debug(client, "<ATX>: client (%ld) start trx: ->pool->user->active_transactions_count ++; ==> %d)",
+			   (long) client,
+			   client->pool->user->active_transactions_count);
+		}
 		/* tag the server as dirty */
 		client->link->ready = false;
 		client->link->idle_tx = false;
@@ -558,6 +571,7 @@ static bool handle_client_work(PgSocket *client, PktHdr *pkt)
 
 	/* client wants to go away */
 	default:
+		
 		slog_error(client, "unknown pkt from client: %d/0x%x", pkt->type, pkt->type);
 		disconnect_client(client, true, "unknown pkt");
 		return false;

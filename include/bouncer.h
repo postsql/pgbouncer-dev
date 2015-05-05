@@ -254,8 +254,11 @@ struct PgUser {
 	char name[MAX_USERNAME];
 	char passwd[MAX_PASSWORD];
 	int pool_mode;
-	int max_user_connections;	/* how much server connections are allowed */
-	int connection_count;	/* how much connections are used by user now */
+	int max_user_connections;	/* how many server connections are allowed */
+	int connection_count;	    /* how many connections are used by user now */
+	/* limiting the number of parallel active connections */
+	int max_user_active_transactions; /* how many server connections from this user can be executing a command concurrently */
+	int active_transactions_count;    /* how many server connections from this user are executing a command now */
 };
 
 /*
@@ -379,6 +382,7 @@ extern int cf_res_pool_size;
 extern usec_t cf_res_pool_timeout;
 extern int cf_max_db_connections;
 extern int cf_max_user_connections;
+extern int cf_max_user_active_transactions;
 
 extern char * cf_autodb_connstr;
 extern usec_t cf_autodb_idle_timeout;

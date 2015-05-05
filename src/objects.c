@@ -764,6 +764,11 @@ void disconnect_server(PgSocket *server, bool notify, const char *reason, ...)
 	case SV_ACTIVE:
 		client = server->link;
 		if (client) {
+			if(!server->ready) { 
+				client->pool->user->active_transactions_count -= 1;				
+				slog_info(client, "disconnect: ->pool->user->active_transactions_count -= 1; ==> %d)",
+				  client->pool->user->active_transactions_count);
+			}
 			client->link = NULL;
 			server->link = NULL;
 			disconnect_client(client, true, "%s", reason);

@@ -400,7 +400,7 @@ bool parse_user(void *base, const char *name, const char *connstr)
 	struct CfValue cv;
 	int pool_mode = POOL_INHERIT;
 	int max_user_connections = -1;
-
+    int max_user_active_transactions = -1;
 
 	cv.value_p = &pool_mode;
 	cv.extra = (const void *)pool_mode_map;
@@ -427,6 +427,8 @@ bool parse_user(void *base, const char *name, const char *connstr)
 
 		} else if (strcmp("max_user_connections", key) == 0) {
 			max_user_connections = atoi(val);
+		} else if (strcmp("max_user_active_transactions", key) == 0) {
+			max_user_active_transactions = atoi(val);
 		} else {
 			log_error("skipping user %s because"
 				  " of unknown parameter in settings: %s", name, key);
@@ -445,6 +447,7 @@ bool parse_user(void *base, const char *name, const char *connstr)
 
 	user->pool_mode = pool_mode;
 	user->max_user_connections = max_user_connections;
+	user->max_user_active_transactions = max_user_active_transactions ;
 
 fail:
 	free(tmp_connstr);

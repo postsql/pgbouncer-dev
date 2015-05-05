@@ -20,3 +20,4 @@ bool server_proto(SBuf *sbuf, SBufEvent evtype, struct MBuf *pkt)  _MUSTCHECK;
 int pool_pool_mode(PgPool *pool) _MUSTCHECK;
 int database_max_connections(PgDatabase *db) _MUSTCHECK;
 int user_max_connections(PgUser *user) _MUSTCHECK;
+int user_max_active_transactions(PgUser *user) _MUSTCHECK;

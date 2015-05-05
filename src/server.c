@@ -45,6 +45,10 @@ static bool load_parameter(PgSocket *server, PktHdr *pkt, bool startup)
 	if (client) {
 		slog_debug(client, "setting client var: %s='%s'", key, val);
 		varcache_set(&client->vars, key, val);
+		client->pool->user->active_transactions_count ++;
+	    slog_debug(client, "<ATX>: server (%ld) varcache_set: client->pool->user->active_transactions_count ++; --> %d)",
+		   (long) server,
+	       client->pool->user->active_transactions_count);
 	}
 
 	if (startup) {
@@ -133,6 +137,7 @@ static bool handle_server_startup(PgSocket *server, PktHdr *pkt)
 
 	case 'S':		/* ParameterStatus */
 		res = load_parameter(server, pkt, true);
+		server->ready = 1;
 		break;
 
 	case 'Z':		/* ReadyForQuery */
@@ -213,6 +218,15 @@ int user_max_connections(PgUser *user)
 	}
 }
 
+int user_max_active_transactions(PgUser *user)
+{
+	if (user->max_user_active_transactions <= 0) {
+		return cf_max_user_active_transactions;
+	} else {
+		return user->max_user_active_transactions;
+	}
+}
+
 /* process packets on logged in connection */
 static bool handle_server_work(PgSocket *server, PktHdr *pkt)
 {
@@ -238,8 +252,19 @@ static bool handle_server_work(PgSocket *server, PktHdr *pkt)
 			return false;
 
 		/* set ready only if no tx */
-		if (state == 'I')
+		if (state == 'I'){
+			if(!server->ready){
+				if(client /*&& client->pool && client->pool->user*/){
+					client->pool->user->active_transactions_count --;
+				    slog_debug(client, "<ATX>: server (%ld) ready: client->pool->user->active_transactions_count --; --> %d)",
+					   (long) server,
+				       client->pool->user->active_transactions_count);
+			    } else {
+					slog_debug(client, "<ATX>: server (%ld) became ready while not connected to client", (long) server);
+				}
+			}
 			ready = true;
+		}
 		else if (pool_pool_mode(server->pool) == POOL_STMT) {
 			disconnect_server(server, true, "Long transactions not allowed");
 			return false;
@@ -262,6 +287,9 @@ static bool handle_server_work(PgSocket *server, PktHdr *pkt)
 	 * But the 'E' or 'N' packet between transactions signifies probably
 	 * dying backend.  This its better to tag server as dirty and drop
 	 * it later.
+	 *
+	 * HK: TODO: check if client->pool->user->active_transactions_count
+	 * needs changing here in sync with  ->ready change
 	 */
 	case 'E':		/* ErrorResponse */
 		if (server->setting_vars) {
@@ -463,6 +491,9 @@ bool server_proto(SBuf *sbuf, SBufEvent evtype, struct MBuf *data)
 			case SV_IDLE:
 				break;
 			}
+		}
+		if (pool_pool_mode(pool)  == POOL_SESSION){
+			// check if any client connections are waiting on max_active ... 
 		}
 		break;
 	case SBUF_EV_PKT_CALLBACK:
